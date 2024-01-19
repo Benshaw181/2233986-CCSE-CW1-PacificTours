@@ -1,0 +1,45 @@
+﻿@page "/user-list"
+@using PacificTours.Data
+@attribute [Authorize]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<h3>User List</h3>
+
+@foreach (var user in users)
+{
+    <div>@user.UserName</div>
+    <div>@user.Email</div>
+    <div>@user.Id</div>
+    <!-- Add more attributes as needed -->
+    <hr />
+    <div>Id of current user: @myUser</div>
+}
+
+@code {
+    private List<CustomerUser> users = new List<CustomerUser>();
+    private String myUser;
+
+    [Inject]
+    private UserService userService { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var userName = authenticationState.User.Identity.Name;
+        users = await userService.GetAllUsers();
+        PrintAttributesToConsole(users);
+        myUser = await userService.GetUserIdByEmail(userName);
+    }
+
+    private void PrintAttributesToConsole(List<CustomerUser> users)
+    {
+        foreach (var user in users)
+        {
+            Console.WriteLine($"User ID: {user.Id}");
+            Console.WriteLine($"User Name: {user.UserName}");
+            Console.WriteLine($"Email: {user.Email}");
+            // Add more attributes as needed
+            Console.WriteLine("------------------------------");
+        }
+    }
+}
