@@ -1,0 +1,249 @@
+﻿@page "/Basket"
+@using Microsoft.AspNetCore.Mvc
+@using PacificTours.Models
+@using PacificTours.Data
+@attribute [Authorize]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject Data.BasketDbContext BasketdbContext
+@inject Data.BookingDbContext BookingdbContext
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject HttpClient Http
+
+<h3>Basket</h3>
+
+@if (customerBasket.Count <= 0)
+{
+    <span>Basket Empty</span>
+}
+@if (bookingSuccessful)
+{
+    <h6>Deposit Paid, Booking Confirmed :)</h6>
+}
+@if (customerBasket.Count > 0)
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Starting Date</th>
+                <th>Ending Date</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in customerBasket)
+            {
+                <tr>
+                    <td width="10%">@item.BasketItem</td>
+                    <td width="5%">@item.StartDate.ToShortDateString()</td>
+                    <td width="5%">@item.EndDate.ToShortDateString()</td>
+                    <td width="5%">£@item.Cost</td>
+                    <td width="7%">
+                        <a @onclick="_=>RemoveItem(item.Id)" class="btn btn-primary" tabindex="-1"
+                           role="button" aria-disabled="true">
+                            <svg xmlns=http://www.w3.org/2000/svg width="16" height="16" fill="currentColor"
+                                 class="bi bi-pencil-fill" viewBox="0 0 16 16">
+                                <path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-12
+.708l-3-3zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0
+1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207l6.5-6.5zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-
+.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5
+0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11l.178-.178z">
+                                    .
+                                </path>
+                            </svg> Remove
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <hr />
+    <h5>Basket Total: £@totalCost.ToString("#.##")</h5>
+    <p>Package Discount: £@discount.ToString("#.##")</p>
+    <p><i>Deposit Required to Book (20%): £@deposit.ToString("#.##")</i></p>
+    <hr />
+    <h5>Final Price : £@finalCost.ToString("#.##")</h5>
+    <hr />
+    <a @onclick="_=>BookAll(customerBasket)" class=" btn btn-primary" tabindex="-1"
+       role="button" aria-disabled="true">
+        <svg xmlns=http://www.w3.org/2000/svg width="16" height="16" fill="currentColor"
+             class="bi bi-pencil-fill" viewBox="0 0 16 16">
+            <path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-12
+.708l-3-3zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0
+1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207l6.5-6.5zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-
+.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5
+0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11l.178-.178z">
+                .
+            </path>
+        </svg> Confirm Booking (pay deposit)
+    </a>
+}
+
+@code {
+    List<Basket> customerBasket = new List<Basket>();
+    string customerEmail;
+    string customerId;
+    string fullEndpoint;
+    double totalCost = 0;
+    double discount = 0;
+    double finalCost = 0;
+    double deposit = 0;
+    bool packageDeal = false;
+    Basket packageHotel = null;
+    Basket packageTour = null;
+    string packageDetails;
+    bool fullPaymentRequired = false;
+    bool paidFull = false;
+
+    [Inject]
+    private UserService userService { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // get user id via user email address
+        var customer = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        customerEmail = customer.User.Identity.Name;
+        customerId = await userService.GetUserIdByEmail(customerEmail);
+
+        // work out full location of API
+        fullEndpoint = NavigationManager.BaseUri;
+
+        // get userbasket using basketcontroller
+        var result = await Http.GetFromJsonAsync<List<Basket>>(fullEndpoint + $"api/Basket/User/{customerId}");
+        if (result != null)
+        {
+            customerBasket = result;
+        }
+        // see if package exists
+        await CheckIfPackageExists();
+        // workout costs
+        await CalculateCosts();
+    }
+
+    // remove item from basket
+    private async Task RemoveItem(int basketItemId)
+    {
+        var result = await Http.DeleteAsync(fullEndpoint + $"api/Basket/Delete/{basketItemId}");
+        if (result != null)
+        {
+            var newCustomerBasket = await Http.GetFromJsonAsync<List<Basket>>(fullEndpoint + $"api/Basket/User/{customerId}");
+            if (newCustomerBasket != null)
+            {
+                customerBasket = newCustomerBasket;
+            }
+        }
+    }
+
+    private async Task RemoveAllItems()
+    {
+        foreach (var item in customerBasket)
+        {
+            await RemoveItem(item.Id);
+        }
+    }
+
+    // Create Bookings for all items in Basket
+    public Booking newBooking = new Booking();
+
+    public bool saved = false;
+    public bool error = false;
+    public bool bookingSuccessful = false;
+
+    private async Task BookAll(List<Basket> basket)
+    {
+        foreach (Basket item in basket)
+        {
+            Booking bookingItem = new Booking();
+
+            // book package as single entity
+            if (packageDeal)
+            {
+                bookingItem.BookingPackageDate = DateTime.Now;
+                bookingItem.BookingType = "Package";
+                bookingItem.BookingDetails = packageDetails; // here hotel name and tour to be together
+                bookingItem.BookingCustomerId = item.CustomerId;
+                bookingItem.BookingPrice = finalCost;
+                bookingItem.BookingAmountPaid = deposit; // deposit paid here
+                bookingItem.BookingStartDate = item.StartDate;
+                bookingItem.BookingEndDate = item.EndDate;
+                bookingItem.BookingPackageDate = DateTime.Now;
+                var result = await Http.PostAsJsonAsync<Booking>(fullEndpoint + "api/Booking/", bookingItem);
+                if (result != null)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                bookingItem.BookingType = item.ItemType;
+                bookingItem.BookingDetails = item.BasketItem; // here hotel name and bedType to be together
+                bookingItem.BookingCustomerId = item.CustomerId;
+                bookingItem.BookingPrice = item.Cost;
+                bookingItem.BookingAmountPaid = deposit; // deposit paid here
+                bookingItem.BookingStartDate = item.StartDate;
+                bookingItem.BookingEndDate = item.EndDate;
+                var result = await Http.PostAsJsonAsync<Booking>(fullEndpoint + "api/Booking/", bookingItem);
+                if (result != null)
+                {
+                    continue;
+                }
+            }
+        }
+
+        await RemoveAllItems();
+        bookingSuccessful = true;
+    }
+
+    private async Task CalculateCosts()
+    {
+        foreach (var item in customerBasket)
+        {
+            totalCost += item.Cost;
+        }
+
+        if (packageDeal)
+        {
+            string bedType;
+            var hotelInfo = packageHotel.BasketItem.Split(" - ");
+            bedType = hotelInfo[1];
+
+            if (packageDeal == true && bedType == "Single")
+            {
+                discount = totalCost * 0.1;
+            }
+            if (packageDeal == true && bedType == "Double")
+            {
+                discount = totalCost * 0.2;
+            }
+            if (packageDeal == true && bedType == "Family")
+            {
+                discount = totalCost * 0.4;
+            }
+        }
+
+        finalCost = totalCost - discount;
+        deposit = finalCost * 0.2;
+    }
+
+    private async Task CheckIfPackageExists()
+    {
+
+        foreach (var item in customerBasket)
+        {
+            if (item.ItemType == "Hotel")
+            {
+                packageHotel = item;
+            }
+            if (item.ItemType == "Tour")
+            {
+                packageTour = item;
+            }
+            if (packageHotel != null && packageTour != null && customerBasket.Count == 2 && packageHotel.StartDate == packageTour.StartDate && packageHotel.EndDate == packageTour.EndDate)
+            {
+                packageDeal = true;
+                packageDetails = packageHotel.BasketItem + " - " + packageTour.BasketItem;
+            }
+        }
+    }
+}

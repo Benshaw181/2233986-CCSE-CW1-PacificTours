@@ -1,0 +1,125 @@
+﻿@page "/Hotels/View"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.WebUtilities
+@using PacificTours.Models
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject Data.BasketDbContext dbContext
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+
+<h3>Hotel Booking</h3>
+<p>Name: @hotel.Name</p>
+<p>Location: @hotel.Location</p>
+<p>Bed: @hotel.BedType</p>
+<p>Cost: £@hotel.Cost</p>
+
+
+<EditForm Model="@newBasket" OnValidSubmit="SubmitForm">
+    <DataAnnotationsValidator />
+    <label>Start Date</label>
+    <InputDate @bind-Value="newBasket.StartDate" />
+    <label>End Date</label>
+    <InputDate @bind-Value="newBasket.EndDate" />
+    <button type="submit">Submit</button>
+
+    @if (saved)
+    {
+        <p>Hotel added to basket</p>
+        <p><a href="Basket">View Basket</a></p>
+        <p><a href="Hotels">Return to Hotels</a></p>
+        <p><a href="Tours">Add Tour</a> (receive a package discount when purchase with a hotel booking)</p>
+    }
+    @if (invalid)
+    {
+        <p>The dates you have selected are invalid, please enter valid dates</p>
+    }
+    @if (error)
+    {
+        <p>Something Went Wrong</p>
+    }
+
+</EditForm>
+
+@code {
+    // hotelId is the value sent in the url query to this page
+    private int hotelId;
+    private string customerEmail;
+    string customerId;
+    string fullEndpoint;
+
+    // add customer service for fetching user information
+    [Inject]
+    private Data.UserService userService { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // fetch the hotel id from the url query string
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var queryStrings = QueryHelpers.ParseQuery(uri.Query);
+
+        if (queryStrings.TryGetValue("id", out var id))
+        {
+            hotelId = Convert.ToInt32(id);
+        }
+    }
+
+    public Hotel hotel = new Hotel();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // get information on hotel using hotelcontroller
+        fullEndpoint = NavigationManager.BaseUri;
+        var result = await Http.GetFromJsonAsync<Hotel>(fullEndpoint + $"api/Hotel/{hotelId}");
+        if (result != null)
+        {
+            hotel = result;
+        }
+
+        // get user id using user email for input to Basket object
+        var user = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        customerEmail = user.User.Identity.Name;
+        customerId = await userService.GetUserIdByEmail(customerEmail);
+    }
+
+    public Basket newBasket = new Basket();
+
+    public bool saved = false;
+    public bool error = false;
+    public bool invalid = false;
+
+    private async Task SubmitForm()
+    {
+
+        saved = false;
+        error = false;
+        invalid = false;
+
+        //check if new dates are valid
+        if (newBasket.StartDate > newBasket.EndDate || newBasket.EndDate < DateTime.Now || newBasket.StartDate < DateTime.Now)
+        {
+            invalid = true;
+        }
+
+        if (invalid == false)
+        {
+            try
+            {
+                // add attributes to newBasket object
+                newBasket.CustomerId = customerId;
+                newBasket.BasketItem = hotel.Name + " - " + hotel.BedType;
+                newBasket.Cost = hotel.Cost * (newBasket.EndDate - newBasket.StartDate).Days;
+                newBasket.ItemType = "Hotel";
+
+                // Add newBasket to Baskets Table (using BasketController)
+                var result = await Http.PostAsJsonAsync<Basket>(fullEndpoint + "api/Basket/", newBasket);
+                saved = true;
+
+            }
+            catch (Exception)
+            {
+                throw;
+                error = true;
+            }
+        }
+    }
+}

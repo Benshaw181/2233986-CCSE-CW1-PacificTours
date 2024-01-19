@@ -1,0 +1,83 @@
+﻿@page "/Hotels"
+@using PacificTours.Models
+@* @attribute [Authorize]
+@inject AuthenticationStateProvider AuthenticationStateProvider *@
+@inject NavigationManager NavigationManager
+@inject Data.BasketDbContext dbContext
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject HttpClient Http
+
+<h3>Hotels</h3>
+
+@if (hotels.Count <= 0)
+{
+    <span>Loading Hotels...</span>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Location</th>
+                <th>Type</th>
+                <th>Cost</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var hotel in hotels)
+            {
+                <tr>
+                    <td width="30%">@hotel.Name</td>
+                    <td width="25%">@hotel.Location</td>
+                    <td width="10%">@hotel.BedType</td>
+                    <td width="5%">£@hotel.Cost</td>
+                    <td width="7%">
+                        <a href="@ViewHotel(@hotel)" class="btn btn-primary" tabindex="-1"
+                           role="button" aria-disabled="true">
+                            <svg xmlns=http://www.w3.org/2000/svg width="16" height="16" fill="currentColor"
+                                 class="bi bi-pencil-fill" viewBox="0 0 16 16">
+                                <path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-12
+.708l-3-3zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0
+1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207l6.5-6.5zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-
+.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5
+0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11l.178-.178z">
+                                    .
+                                </path>
+                            </svg> Book
+                        </a>
+                    </td>
+
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    List<Hotel> hotels = new List<Hotel>();
+    // string _email;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // // get user email address (no longer used since basket implementation)
+        // var user = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        // _email = user.User.Identity.Name;
+
+        // work out full URI of API
+        string fullEndpoint = NavigationManager.BaseUri + "api/Hotel";
+
+        // fetch all hotel records from Hotels Table
+        var result = await Http.GetFromJsonAsync<List<Hotel>>(fullEndpoint);
+        if (result != null)
+        {
+            hotels = result;
+        }
+    }
+
+    private string ViewHotel(Hotel hotel)
+    {
+        return $"Hotels/View?id={hotel.Id}";
+    }
+}

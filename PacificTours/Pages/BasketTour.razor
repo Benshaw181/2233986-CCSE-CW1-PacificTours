@@ -1,0 +1,130 @@
+﻿@page "/Tours/View"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.WebUtilities
+@using PacificTours.Models
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject Data.BasketDbContext dbContext
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+
+<h3>Tour Booking</h3>
+<p>Name: @tour.Name</p>
+<p>Duration: @tour.Duration Days</p>
+<p>Cost: £@tour.Cost</p>
+
+
+<EditForm Model="@newBasket" OnValidSubmit="SubmitForm">
+    <DataAnnotationsValidator />
+    <label>Start Date</label>
+    <InputDate @bind-Value="newBasket.StartDate" />
+    <label>End Date</label>
+    <InputDate @bind-Value="newBasket.EndDate" />
+    <button type="submit">Submit</button>
+
+    @if (saved)
+    {
+        <p>Tour added to basket</p>
+        <p><a href="Basket">View Basket</a></p>
+        <p><a href="Tours">Return to Tours</a></p>
+        <p><a href="Hotels">Add Hotel</a> (receive a package discount when purchase with a tour booking)</p>
+    }
+    @if (invalid)
+    {
+        <p>The dates you have selected are invalid, please enter valid dates<hr />Remember, you must book dates that fit the duration of your tour</p>
+    }
+    @if (error)
+    {
+        <p>Something Went Wrong</p>
+    }
+
+</EditForm>
+
+@code {
+    // tourId is the value sent in the url query to this page
+    private int tourId;
+    private string customerEmail;
+    string customerId;
+    string fullEndpoint;
+
+    // add customer service for fetching user information
+    [Inject]
+    private Data.UserService userService { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // fetch the tour id from the url query string
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var queryStrings = QueryHelpers.ParseQuery(uri.Query);
+
+        if (queryStrings.TryGetValue("id", out var id))
+        {
+            tourId = Convert.ToInt32(id);
+        }
+    }
+
+    public Tour tour = new Tour();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // get information on tour using tourcontroller
+        fullEndpoint = NavigationManager.BaseUri;
+        var result = await Http.GetFromJsonAsync<Tour>(fullEndpoint + $"api/Tour/{tourId}");
+        if (result != null)
+        {
+            tour = result;
+        }
+
+        // get user id using user email for input to Basket object
+        var user = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        customerEmail = user.User.Identity.Name;
+        customerId = await userService.GetUserIdByEmail(customerEmail);
+    }
+
+    public Basket newBasket = new Basket();
+
+    public bool saved = false;
+    public bool error = false;
+    public bool invalid = false;
+
+    private async Task SubmitForm()
+    {
+
+        saved = false;
+        error = false;
+        invalid = false;
+
+        //check if new dates are valid
+        if (newBasket.StartDate > newBasket.EndDate || newBasket.EndDate < DateTime.Now || newBasket.StartDate < DateTime.Now)
+        {
+            invalid = true;
+        }
+
+        //check if booking fits tour duration
+        if ((newBasket.EndDate - newBasket.StartDate).TotalDays != tour.Duration)
+        {
+            invalid = true;
+        }
+
+        if (invalid == false)
+        {
+            try
+            {
+                // add attributes to newBasket object
+                newBasket.CustomerId = customerId;
+                newBasket.BasketItem = tour.Name;
+                newBasket.Cost = tour.Cost;
+                newBasket.ItemType = "Tour";
+
+                // Add newBasket to Baskets Table (using BasketController)
+                var result = await Http.PostAsJsonAsync<Basket>(fullEndpoint + "api/Basket/", newBasket);
+                saved = true;
+
+            }
+            catch (Exception)
+            {
+                throw;
+                error = true;
+            }
+        }
+    }
+}

@@ -1,0 +1,147 @@
+﻿@page "/Bookings/Modify"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.WebUtilities
+@using PacificTours.Models
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject Data.BasketDbContext dbContext
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+
+<h3>Modify Booking</h3>
+<p>Details: @booking.BookingDetails</p>
+<p>Price: £@booking.BookingPrice</p>
+<p>Start Date: @booking.BookingStartDate.ToShortDateString()</p>
+<p>End Date: @booking.BookingEndDate.ToShortDateString()</p>
+
+<a @onclick="_=>CancelBooking(booking.Id)" class="btn btn-primary" tabindex="-1"
+   role="button" aria-disabled="true">
+    <svg xmlns=http://www.w3.org/2000/svg width="16" height="16" fill="currentColor"
+         class="bi bi-pencil-fill" viewBox="0 0 16 16">
+        <path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-12
+.708l-3-3zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0
+1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207l6.5-6.5zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-
+.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5
+0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11l.178-.178z">
+            .
+        </path>
+    </svg> Remove
+</a>
+
+<EditForm Model="@booking" OnValidSubmit="UpdateBooking">
+    <DataAnnotationsValidator />
+    <label>Start Date</label>
+    <InputDate @bind-Value="booking.BookingStartDate" />
+    <label>End Date</label>
+    <InputDate @bind-Value="booking.BookingEndDate" />
+    <button type="submit">Submit</button>
+
+    @if (updated && !deleted)
+    {
+        <p>Booking Updated</p>
+        <p><a href="Bookings">View Bookings</a></p>
+    }
+    @if (deleted && !updated)
+    {
+        <p>Booking Deleted</p>
+        <p><a href="Bookings">View Bookings</a></p>
+    }
+    @if (invalid)
+    {
+        <p>The dates you have selected are invalid, please enter valid dates</p>
+    }
+    @if (error)
+    {
+        <p>Something Went Wrong</p>
+    }
+
+</EditForm>
+
+@code {
+    // bookingId is the value sent in the url query to this page
+    private int bookingId;
+    private string customerEmail;
+    string customerId;
+    string fullEndpoint;
+
+    // add customer service for fetching user information
+    [Inject]
+    private Data.UserService userService { get; set; }
+
+    protected override void OnInitialized()
+    {
+        // fetch the booking id from the url query string
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var queryStrings = QueryHelpers.ParseQuery(uri.Query);
+
+        if (queryStrings.TryGetValue("id", out var id))
+        {
+            bookingId = Convert.ToInt32(id);
+        }
+    }
+
+    public Booking booking = new Booking();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // get information on booking using bookingcontroller
+        fullEndpoint = NavigationManager.BaseUri;
+        var result = await Http.GetFromJsonAsync<Booking>(fullEndpoint + $"api/Booking/{bookingId}");
+        if (result != null)
+        {
+            booking = result;
+        }
+
+        // get user id using user email for input to Booking object
+        var user = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        customerEmail = user.User.Identity.Name;
+        customerId = await userService.GetUserIdByEmail(customerEmail);
+    }
+
+    public Booking updatedInfo = new Booking();
+
+    public bool updated = false;
+    public bool deleted = false;
+    public bool error = false;
+    public bool invalid = false;
+
+    private async Task UpdateBooking()
+    {
+
+        updated = false;
+        deleted = false;
+        error = false;
+        invalid = false;
+
+        //check if new dates are valid
+        if (booking.BookingStartDate > booking.BookingEndDate || booking.BookingEndDate < DateTime.Now || booking.BookingStartDate < DateTime.Now)
+        {
+            invalid = true;
+        }
+
+        if (invalid == false)
+        {
+
+            try
+            {
+                var result = await Http.PutAsJsonAsync(fullEndpoint + $"api/Booking/{booking.Id}", booking);
+                updated = true;
+
+            }
+            catch (Exception)
+            {
+                throw;
+                error = true;
+            }
+        }
+    }
+
+    // cancel a booking
+    private async Task CancelBooking(int bookingId)
+    {
+        var result = await Http.DeleteAsync(fullEndpoint + $"api/Booking/Delete/{bookingId}");
+        if (result != null)
+        {
+            deleted = true;
+        }
+    }
+}
