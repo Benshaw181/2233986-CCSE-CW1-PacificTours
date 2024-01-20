@@ -1,0 +1,69 @@
+﻿@page "/Addhotel"
+@using PacificTours.Models
+
+<PageTitle>Index</PageTitle>
+
+<h3>Add a Hotel</h3>
+
+<EditForm Model="@newHotel" OnValidSubmit="SubmitForm">
+    <DataAnnotationsValidator />
+
+    <label>Hotel Name</label>
+    <InputText @bind-Value="newHotel.Name" />
+    <ValidationMessage For="@(() => newHotel.Name)" />
+    <br />
+    <br />
+    <label>Location</label>
+    <InputText @bind-Value="newHotel.Location" />
+    <br />
+    <br />
+    <label>Bed Type</label>
+    <InputText @bind-Value="newHotel.BedType" />
+    <br />
+    <br />
+    <label>Cost</label>
+    <InputNumber @bind-Value="newHotel.Cost" />
+    <br />
+    <br />
+    <label>Spaces</label>
+    <InputNumber @bind-Value="newHotel.Spaces" />
+    <br />
+    <br />
+    <button type="submit">Submit</button>
+
+    @if (saved)
+    {
+        <p>The Hotel is Saved!</p>
+    }
+    @if (error)
+    {
+        <p>Something Went Wrong</p>
+    }
+
+</EditForm>
+
+@inject Data.HotelDbContext dbContext
+@code {
+    public Hotel newHotel = new Hotel();
+
+    public bool saved = false;
+    public bool error = false;
+
+    private async Task SubmitForm()
+    {
+        saved = false;
+        error = false;
+        try
+        {
+            dbContext.Hotels.Add(newHotel);
+            await dbContext.SaveChangesAsync();
+            newHotel = new Hotel();
+            saved = true;
+        }
+        catch (Exception)
+        {
+            error = true;
+            throw;
+        }
+    }
+}

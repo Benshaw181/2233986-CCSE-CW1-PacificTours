@@ -1,0 +1,65 @@
+﻿@page "/Addtour"
+@using PacificTours.Models
+
+<PageTitle>Index</PageTitle>
+
+<h3>Add a Tour</h3>
+
+<EditForm Model="@newTour" OnValidSubmit="SubmitForm">
+    <DataAnnotationsValidator />
+
+    <label>Tour Name</label>
+    <InputText @bind-Value="newTour.Name" />
+    <ValidationMessage For="@(() => newTour.Name)" />
+    <br />
+    <br />
+    <label>Duration</label>
+    <InputNumber @bind-Value="newTour.Duration" />
+    <br />
+    <br />
+    <label>Cost</label>
+    <InputNumber @bind-Value="newTour.Cost" />
+    <br />
+    <br />
+    <label>Spaces</label>
+    <InputNumber @bind-Value="newTour.Spaces" />
+    <br />
+    <br />
+    <button type="submit">Submit</button>
+
+    @if (saved)
+    {
+        <p>The Tour is Saved!</p>
+    }
+    @if (error)
+    {
+        <p>Something Went Wrong</p>
+    }
+
+</EditForm>
+
+@inject Data.TourDbContext dbContext
+@code {
+    public Tour newTour = new Tour();
+
+    public bool saved = false;
+    public bool error = false;
+
+    private async Task SubmitForm()
+    {
+        saved = false;
+        error = false;
+        try
+        {
+            dbContext.Tours.Add(newTour);
+            await dbContext.SaveChangesAsync();
+            newTour = new Tour();
+            saved = true;
+        }
+        catch (Exception)
+        {
+            error = true;
+            throw;
+        }
+    }
+}
