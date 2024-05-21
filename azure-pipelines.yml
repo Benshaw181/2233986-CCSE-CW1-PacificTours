@@ -1,0 +1,24 @@
+trigger:
+- main
+
+pool:
+  name: 'local'
+
+steps:
+- task: UseDotNet@2
+  inputs:
+    packageType: 'sdk'
+    version: '7.x'
+    installationPath: $(Agent.ToolsDirectory)/dotnet
+
+- script: 'dotnet restore'
+  workingDirectory: '$(Build.SourcesDirectory)/PacificTours'
+  displayName: 'Restore NuGet Packages'
+
+- script: 'dotnet build'
+  workingDirectory: '$(Build.SourcesDirectory)/PacificTours'
+  displayName: 'Build Project'
+
+- script: 'dotnet test'
+  workingDirectory: '$(Build.SourcesDirectory)/PacificTours'
+  displayName: 'Run Tests'
