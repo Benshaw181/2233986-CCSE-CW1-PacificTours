@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PacificTours.Models;
+using Microsoft.EntityFrameworkCore.Sqlite;
 
 namespace PacificTours.Data
 {
@@ -14,7 +15,7 @@ namespace PacificTours.Data
         protected override void OnConfiguring(DbContextOptionsBuilder options)
         {
             //base.OnConfiguring(options);
-            options.UseSqlServer(Configuration.GetConnectionString("DefaultDbConnection"));
+            options.UseSqlite(Configuration.GetConnectionString("DefaultDbConnection"));
         }
 
         public DbSet<Booking> Bookings { get; set; }

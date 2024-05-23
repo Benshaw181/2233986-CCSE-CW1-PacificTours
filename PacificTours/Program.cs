@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using PacificTours.Areas.Identity;
 using PacificTours.Data;
+using System.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 

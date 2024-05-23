@@ -14,7 +14,7 @@ namespace PacificTours.Data
 
         protected override void OnConfiguring(DbContextOptionsBuilder options)
         {
-            options.UseSqlServer(Configuration.GetConnectionString("DefaultDbConnection"));
+            options.UseSqlite(Configuration.GetConnectionString("DefaultDbConnection"));
         }
 
         public DbSet<Tour> Tours { get; set; }

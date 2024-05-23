@@ -15,14 +15,14 @@ namespace PacificTours.Migrations.BasketDb
                 name: "Baskets",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    CustomerId = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    BasketItem = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    ItemType = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Cost = table.Column<int>(type: "int", nullable: false),
-                    StartDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    EndDate = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    CustomerId = table.Column<string>(type: "TEXT", nullable: false),
+                    BasketItem = table.Column<string>(type: "TEXT", nullable: false),
+                    ItemType = table.Column<string>(type: "TEXT", nullable: false),
+                    Cost = table.Column<int>(type: "INTEGER", nullable: false),
+                    StartDate = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    EndDate = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
